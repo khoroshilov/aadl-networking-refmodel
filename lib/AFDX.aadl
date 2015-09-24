@@ -1,0 +1,99 @@
+------------------------------------------------------------------
+-- A library of AADL components to be used to model AFDX networks.
+--
+------------------------------------------------------------------
+--------------------List of changes-------------------------------
+------------------------------------------------------------------
+------------------------------------------------------------------
+-- Version 1.0. (20 Sep 2015)
+--   Initial revision for 2015 Fall AADL meeting 
+--     Alexey Khoroshilov (ISPRAS)
+------------------------------------------------------------------
+PACKAGE AFDX
+Public
+
+  WITH AFDX_Properties;
+  
+------------------------------------------------------------------
+--- 1. Hardware Components
+------------------------------------------------------------------
+
+------------------------------------------------------------------
+--- 1.1 AFDXWire
+------------------------------------------------------------------
+  BUS Wire
+  END Wire;
+
+------------------------------------------------------------------
+--- 1.2 AFDXSwitch
+------------------------------------------------------------------
+  ABSTRACT Switch
+  END Switch;
+
+------------------------------------------------------------------
+--- 1.2 AFDX End System
+------------------------------------------------------------------
+  ABSTRACT End_System
+    FEATURES
+      afdx : REQUIRES BUS ACCESS Wire;
+  END End_System;
+
+------------------------------------------------------------------
+--- 2. AFDX Network Configuration
+------------------------------------------------------------------
+
+------------------------------------------------------------------
+--- 2.1 AFDX Network
+------------------------------------------------------------------
+  VIRTUAL BUS Network
+  annex pycl {**
+    @constraint("Virtual Link Identifier should be unique across AFDX network")
+    def vlids_is_unique(self,vlids):
+        from collections import Counter
+        cnts = Counter(vlids.values())
+        cnts.subtract(Counter(cnts.keys()))
+        if len(cnts)!=0:
+            vlids = {str(vl):vlids[vl] for vl in vlids if vlids[vl] in cnts.keys()}
+            self.info('There are nonunique elements:'+str(vlids))
+            return False
+        return True
+**};
+  END Network;
+
+  VIRTUAL BUS IMPLEMENTATION Network.i
+  END Network.i;
+
+------------------------------------------------------------------
+--- 2.2 AFDX Virtual Link
+------------------------------------------------------------------
+  VIRTUAL BUS Virtual_Link
+annex pycl {**
+    @constraint("BAG is MANDATORY for each AFDX virtual link")
+    def bag_is_mandatory(self):
+        return self.hasProperty('AFDX_Properties::BAG')
+
+    @constraint("BAG is power of 2 between 1 ms and 128 ms")
+    def bag_is_power_of_two(self):
+        from AADL_Project.Time_Units import ms
+        if not self.properties['AFDX_Properties::BAG'] in ((2**x)*ms for x in range(7)):
+            self.info(str(self.properties['AFDX_Properties::BAG'])+' is not power of 2 between 1 ms and 128 ms')
+            return False
+        return True    
+
+    @constraint("only one of SkewDelayA and SkewDelayB should be more than zero")
+    def skew_delay_zero(self):
+        return self.properties['AFDX_Properties::SkewDelayA']==0 \
+            or self.properties['AFDX_Properties::SkewDelayB']==0
+**};
+  END Virtual_Link;
+
+  VIRTUAL BUS IMPLEMENTATION Virtual_Link.i
+  END Virtual_Link.i;
+
+  VIRTUAL BUS IMPLEMENTATION Virtual_Link.dup
+    SUBCOMPONENTS
+      netA : VIRTUAL BUS Virtual_Link;
+      netB : VIRTUAL BUS Virtual_Link;
+  END Virtual_Link.dup;
+
+END AFDX;

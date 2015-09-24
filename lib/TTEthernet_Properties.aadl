@@ -1,0 +1,69 @@
+------------------------------------------------------------------
+-- A property set for AADL models of TTEthernet networks.
+--
+------------------------------------------------------------------
+--------------------List of changes-------------------------------
+------------------------------------------------------------------
+------------------------------------------------------------------
+-- Version 1.0. (20 Sep 2015)
+--   Initial revision for 2015 Fall AADL meeting 
+--     Alexey Khoroshilov (ISPRAS)
+------------------------------------------------------------------
+PROPERTY SET TTEthernet_Properties IS
+
+
+------------------------------------------------------------------
+--- 1. TTEFrame Properties
+------------------------------------------------------------------
+    -- Frame Length
+    -- Related to: AFDX_Properties::Lmax and AFDX_Properties::Lmin. 
+    -- MANDATORY: for each TTEthernet Frame
+    Frame_Lenght : AADLINTEGER 64 Bytes .. 1518 Bytes units SIZE_UNITS applies to (virtual bus);
+
+    -- Frame Period
+    -- MANDATORY: for each TTEthernet Frame
+    Frame_Period : TIME applies to (virtual bus);
+
+    -- Frame Offset
+    -- TTEthernet scheduler has to assign values to frame offset
+    -- for all frames F on all links L in the network.
+    -- CONSTRAINTS: Should be less then Frame_Period.
+    -- MANDATORY: for each TTEthernet Frame
+    Frame_Schedule : list of record (
+      Frame        : reference (virtual bus);  -- TTEFrame Reference
+      Frame_Offset : Time;                     -- Frame Offset
+                                    ) applies to (bus);
+
+------------------------------------------------------------------
+--- 2. TTEDevice
+------------------------------------------------------------------
+    -- Synchronization Domain Identifier
+    -- CONSTRAINTS: Should be encoded in 8 bit field
+    -- OPTIONAL: required to be able send TT frames, otherwise is optional
+    -- INHERITABLE to be defined in system for all subcomponents at once
+    Synchronization_Domain : inherit AADLINTEGER 0..255  applies to (device,system,processor);
+    -- or:
+--    Synchronization_Domain : inherit AADLINTEGER 0..255  applies to (virtual bus);
+
+    -- Synchronization Priority
+    -- CONSTRAINTS: Should be encoded in 8 bit field
+    -- MANDATORY: for each TTEDevice
+    -- each TTEDevice belongs to exactly one synchronization priority
+    -- INHERITABLE to be defined in system for all subcomponents at once
+    Synchronization_Priority : inherit AADLINTEGER 0..255  applies to (device,system,processor);
+
+    -- Synchronization Role
+    -- MANDATORY: for each TTEDevice
+    -- INHERITABLE to be defined in system for all subcomponents at once
+    Synchronization_Role : inherit enumeration (Synchronization_Master, 
+                                                Compression_Master, 
+                                                Synchronization_Client) 
+                           applies to (device,system,processor);
+
+    -- Device Integrity
+    -- MANDATORY: for each Compression Master???
+    -- INHERITABLE to be defined in system for all subcomponents at once
+	Device_Integrity : enumeration (High_Integrity, Standard_Integrity)
+                           applies to (device,system,processor);
+
+END TTEthernet_Properties;

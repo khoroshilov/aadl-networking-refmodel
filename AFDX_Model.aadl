@@ -1,0 +1,211 @@
+------------------------------------------------------------------
+-- Basic AADL model of AFDX network that represents internal
+-- structure of AFDX network, but ignores redundancy.
+-- It works well for symmetrical Network A and B.
+--
+------------------------------------------------------------------
+--------------------List of changes-------------------------------
+------------------------------------------------------------------
+--
+-- Version 1.0. (1 Oct 2014)
+--   Initial revision for 2014 Fall AADL meeting 
+--     Alexey Khoroshilov (ISPRAS)
+-- Version 1.1. (7 Mar 2015)
+--   1. AFDX Network abstraction added.
+--   2. Possibility to model Neywork A and B added.
+--     Alexey Khoroshilov (ISPRAS)
+-- Version 1.2. (20 Sep 2015)
+--   Move library components to a library.
+--     Alexey Khoroshilov (ISPRAS)
+--
+------------------------------------------------------------------
+PACKAGE Basic_AFDX_Model
+Public
+
+  WITH AFDX_Properties;
+  WITH AFDX;
+  WITH Software_Layer;
+
+  AFDX_Network renames VIRTUAL BUS AFDX::Network;
+  
+------------------------------------------------------------------
+-----------------------AFDX_Model---------------------------------
+------------------------------------------------------------------
+  SYSTEM Basic_AFDX_Model
+  END Basic_AFDX_Model;
+  SYSTEM IMPLEMENTATION Basic_AFDX_Model.i 
+    SUBCOMPONENTS
+      HW_Platform : SYSTEM HW_Platform.i;
+      Software_Layer : SYSTEM Software_Layer::Software_Layer.i;
+      -- ARINC-653 Configuration
+      P_1 : VIRTUAL PROCESSOR;
+      P_2 : VIRTUAL PROCESSOR;
+      P_3 : VIRTUAL PROCESSOR;
+      P_4 : VIRTUAL PROCESSOR;
+      -- AFDX Configuration
+      AFDX_Network : VIRTUAL BUS AFDX_Network.i;
+    PROPERTIES
+      -- Network speed defined for the whole network here
+      AFDX_Properties::portSpeed => 100 MBytesps;
+      -- Maps processes to processors
+      Actual_Processor_Binding => (reference(P_1)) applies to Software_Layer.P_1;
+      Actual_Processor_Binding => (reference(P_2)) applies to Software_Layer.P_2;
+      Actual_Processor_Binding => (reference(P_3)) applies to Software_Layer.P_3;
+      Actual_Processor_Binding => (reference(P_4)) applies to Software_Layer.P_4;
+      Actual_Processor_Binding => (reference(HW_Platform.CPM_1.CPU)) applies to P_1;
+      Actual_Processor_Binding => (reference(HW_Platform.CPM_2.CPU)) applies to P_2;
+      Actual_Processor_Binding => (reference(HW_Platform.CPM_3.CPU)) applies to P_3;
+      Actual_Processor_Binding => (reference(HW_Platform.CPM_3.CPU)) applies to P_4;
+      -- Define virtual link configuration
+      Actual_Connection_Binding => (reference(HW_Platform.CPM_1.AFDX_ES),reference(HW_Platform.WIRE_1),reference(HW_Platform.SW_1),
+                                    reference(HW_Platform.WIRE_3),reference(HW_Platform.CPM_2.AFDX_ES)) 
+        applies to AFDX_Network.VL1;
+      Actual_Connection_Binding => (reference(HW_Platform.CPM_2.AFDX_ES),reference(HW_Platform.WIRE_3),reference(HW_Platform.SW_1),
+                                    reference(HW_Platform.WIRE_2),reference(HW_Platform.SW_2),
+                                    reference(HW_Platform.WIRE_4),reference(HW_Platform.CPM_3.AFDX_ES)) 
+        applies to AFDX_Network.VL2;
+      Actual_Connection_Binding => (reference(HW_Platform.CPM_1.AFDX_ES),reference(HW_Platform.WIRE_1),reference(HW_Platform.SW_1),
+                                    reference(HW_Platform.WIRE_2),reference(HW_Platform.SW_2),
+                                    reference(HW_Platform.WIRE_3),reference(HW_Platform.CPM_2.AFDX_ES),
+                                    reference(HW_Platform.WIRE_4),reference(HW_Platform.CPM_3.AFDX_ES)) 
+        applies to AFDX_Network.VL3;
+      -- Map connections to virtual links
+      Actual_Connection_Binding => (reference(HW_Platform.CPM_1.PCI_BUS),reference(AFDX_Network.VL1),reference(HW_Platform.CPM_2.PCI_BUS)) 
+        applies to Software_Layer.CQ_1_2;
+      Actual_Connection_Binding => (reference(HW_Platform.CPM_1.PCI_BUS),reference(AFDX_Network.VL3),reference(HW_Platform.CPM_2.PCI_BUS)) 
+        applies to Software_Layer.CS_1_2;
+      Actual_Connection_Binding => (reference(HW_Platform.CPM_1.PCI_BUS),reference(AFDX_Network.VL2),reference(HW_Platform.CPM_2.PCI_BUS))
+        applies to Software_Layer.C_2_3;
+      Actual_Connection_Binding => (reference(HW_Platform.CPM_1.PCI_BUS),reference(AFDX_Network.VL3),reference(HW_Platform.CPM_3.PCI_BUS))
+        applies to Software_Layer.C_1_3;
+      Actual_Connection_Binding => (reference(HW_Platform.CPM_1.PCI_BUS),reference(AFDX_Network.VL3),reference(HW_Platform.CPM_3.PCI_BUS))
+        applies to Software_Layer.C_1_4;
+      Actual_Connection_Binding => (reference(HW_Platform.CPM_2.PCI_BUS),reference(AFDX_Network.VL2),reference(HW_Platform.CPM_3.PCI_BUS))
+        applies to Software_Layer.C_2_4;
+      -- Switch configuration
+      AFDX_Properties::VL_Route_Table => ([
+            vl => reference (AFDX_Network.VL1);
+            jitter => 8 us;
+            priority => high;
+            accountingPolicy => frame;
+                                     ],
+                                     [
+            vl => reference (AFDX_Network.VL2);
+            jitter => 16 us;
+            priority => low;
+            accountingPolicy => frame;
+                                     ],
+                                     [
+            vl => reference (AFDX_Network.VL3);
+            jitter => 16 us;
+            priority => high;
+            accountingPolicy => frame;
+                                     ]) applies to HW_Platform.SW_1;
+      AFDX_Properties::VL_Route_Table => ([
+            vl => reference (AFDX_Network.VL2);
+            jitter => 16 us;
+            priority => low;
+            accountingPolicy => frame;
+                                     ],
+                                     [
+            vl => reference (AFDX_Network.VL3);
+            jitter => 16 us;
+            priority => high;
+            accountingPolicy => frame;
+                                     ]) applies to HW_Platform.SW_2;
+  END Basic_AFDX_Model.i;
+
+------------------------------------------------------------------
+--- 1. HW_Platform
+------------------------------------------------------------------
+  SYSTEM HW_Platform
+  END HW_Platform;
+  SYSTEM IMPLEMENTATION HW_Platform.i
+    SUBCOMPONENTS
+      CPM_1 : SYSTEM Module.i; -- Processor or System
+      CPM_2 : SYSTEM Module.i; -- Processor or System
+      CPM_3 : SYSTEM Module.i; -- Processor or System
+      WIRE_1 : BUS AFDX::Wire; -- Bus
+      WIRE_2 : BUS AFDX::Wire; -- Bus
+      WIRE_3 : BUS AFDX::Wire; -- Bus
+      WIRE_4 : BUS AFDX::Wire; -- Bus
+      SW_1 : DEVICE AFDXSwitch_4p; -- Device or System
+      SW_2 : DEVICE AFDXSwitch_4p; -- Device or System
+    CONNECTIONS
+      WIRE_1_CPM_1: BUS ACCESS WIRE_1->CPM_1.afdx;
+      WIRE_1_SW_1:  BUS ACCESS WIRE_1->SW_1.afdx_p1;
+      WIRE_3_SW_1:  BUS ACCESS WIRE_3->SW_1.afdx_p3;
+      WIRE_1_CPM_2: BUS ACCESS WIRE_3->CPM_2.afdx;
+      WIRE_2_SW_1:  BUS ACCESS WIRE_2->SW_1.afdx_p4;
+      WIRE_2_SW_2:  BUS ACCESS WIRE_2->SW_2.afdx_p1;
+      WIRE_4_SW_2:  BUS ACCESS WIRE_4->SW_2.afdx_p4;
+      WIRE_4_CPM_3: BUS ACCESS WIRE_4->CPM_3.afdx;
+  END HW_Platform.i;
+
+------------------------------------------------------------------
+--- 1.1 Module
+------------------------------------------------------------------
+  SYSTEM Module
+    FEATURES
+      afdx : REQUIRES BUS ACCESS AFDX::Wire;
+  END Module;
+
+  SYSTEM IMPLEMENTATION Module.i
+    SUBCOMPONENTS
+      CPU : PROCESSOR CPU_with_PCI;
+      AFDX_ES : DEVICE AFDX_Card;
+      PCI_BUS : BUS;
+    CONNECTIONS
+      CPU_PCI: BUS ACCESS PCI_BUS->CPU.pci;
+      AFDX_ES_PCI: BUS ACCESS PCI_BUS->AFDX_ES.pci;
+      AFDX_EXT: BUS ACCESS AFDX_ES.afdx->afdx;
+  END Module.i;
+
+------------------------------------------------------------------
+--- 1.2 CPU_with_PCI
+------------------------------------------------------------------
+  PROCESSOR CPU_with_PCI
+    FEATURES
+      pci : REQUIRES BUS ACCESS;
+  END CPU_with_PCI;
+
+------------------------------------------------------------------
+-- 1.3 AFDX_Card
+------------------------------------------------------------------
+  DEVICE AFDX_Card EXTENDS AFDX::End_System
+    FEATURES
+      pci  : REQUIRES BUS ACCESS;
+    PROPERTIES
+      AFDX_Properties::Supported_Port_Speeds => (100 MBytesps);
+  END AFDX_Card;
+
+------------------------------------------------------------------
+--- 1.4 AFDXSwitch - An implementation with 4 port 
+------------------------------------------------------------------
+  DEVICE AFDXSwitch_4p EXTENDS AFDX::Switch
+	FEATURES
+		afdx_p1 : REQUIRES BUS ACCESS AFDX::Wire;
+		afdx_p2 : REQUIRES BUS ACCESS AFDX::Wire;
+		afdx_p3 : REQUIRES BUS ACCESS AFDX::Wire;
+		afdx_p4 : REQUIRES BUS ACCESS AFDX::Wire;
+    PROPERTIES
+      AFDX_Properties::Supported_Port_Speeds => (10 MBytesps,100 MBytesps);
+  END AFDXSwitch_4p;
+  
+------------------------------------------------------------------
+--- 2. AFDX Network Configuration
+------------------------------------------------------------------
+  VIRTUAL BUS IMPLEMENTATION AFDX_Network.i
+    SUBCOMPONENTS
+      VL1 : VIRTUAL BUS AFDX::Virtual_Link;
+      VL2 : VIRTUAL BUS AFDX::Virtual_Link;
+      VL3 : VIRTUAL BUS AFDX::Virtual_Link;
+    PROPERTIES
+      -- Setup virtual links configuration
+      AFDX_Properties::BAG => 1 ms applies to VL1,VL2,VL3;
+      AFDX_Properties::Lmax => 1518 Bytes applies to VL1;
+      AFDX_Properties::Lmax => 512 Bytes applies to VL2,VL3;
+      AFDX_Properties::SkewMax => 1 ms applies to VL1,VL2,VL3;
+  END AFDX_Network.i;
+
+END Basic_AFDX_Model;

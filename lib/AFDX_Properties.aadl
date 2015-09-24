@@ -1,0 +1,160 @@
+------------------------------------------------------------------
+-- A property set for AADL models of AFDX networks.
+--
+------------------------------------------------------------------
+--------------------List of changes-------------------------------
+------------------------------------------------------------------
+------------------------------------------------------------------
+-- Version 1.0. (1 Oct 2014)
+--   Initial revision for 2014 Fall AADL meeting 
+--     Alexey Khoroshilov (ISPRAS)
+------------------------------------------------------------------
+property set AFDX_Properties is
+
+------------------------------------------------------------------
+--- 1. Virtual Link Properties
+------------------------------------------------------------------
+    -- BAG - Bandwidth Allocation Gap
+    -- The End-System controls the transmission flow for each VL 
+    -- in accordance with the BAG (traffic shaping).
+    -- The Switch verifies the BAG (traffic policing).
+    -- CONSTRAINTS: power of 2 between 1 ms and 128 ms.
+    -- MANDATORY: for each AFDX virtual link
+    BAG : TIME applies to (virtual bus);
+
+    -- Maximum VL frame size
+    -- MANDATORY: for each AFDX virtual link
+    Lmax : AADLINTEGER 64 Bytes .. 1518 Bytes units SIZE_UNITS applies to (virtual bus);
+
+    -- Minimum VL frame size
+    -- OPTIONAL: 64 bytes by default 
+    Lmin : AADLINTEGER 64 Bytes .. 1518 Bytes units SIZE_UNITS => 64 Bytes applies to (virtual bus);
+    
+    -- The maximum time between the reception of two redundant frames
+    -- MANDATORY: for each AFDX virtual link
+    SkewMax    : TIME applies to (virtual bus);
+
+    -- Send frames on both ports A and B, but delay the transmission on one of the ports by the skew delay.
+    -- CONSTRAINTS: only one of the properties should be more than zero
+    -- OPTIONAL: No skew delay by default
+    SkewDelayA : TIME => 0 ms applies to (virtual bus);
+    SkewDelayB : TIME => 0 ms applies to (virtual bus);
+
+    -- Virtual Link Identifier: 16 bit
+    -- CONSTRAINTS: unique across AFDX network
+    -- OPTIONAL: can be generated automatically
+    VLID : AADLINTEGER 0..65535 applies to (virtual bus);
+        
+------------------------------------------------------------------
+--- 2. End System Properties
+------------------------------------------------------------------
+    -- Sub-VL defines order of delivery of messages via virtual link.
+    -- Each Sub-VL has a dedicated FIFO queue, that queues are read on a round robin basis by the output VL FIFO queue.
+    -- Sub-VL is an optional feature of AFDX.
+    -- A VL FIFO queue should be able to manage at most 4 Sub-VL FIFO queues.
+    -- OPTIONAL: by default all messages go via the only sub-VL
+    Max_Supported_SubVLs : AADLINTEGER => 1 applies to (device,system,processor);
+
+    -- List of supported speeds
+    -- CONSTRAINTS: 10 MBpersec,100 MBpersec or 1000 MBpersec 
+    -- OPTIONAL: mandatory to be able check consistency
+    -- Makes sense for bus accesses of end system and switch only (in other components for inheritance purposes only)
+    -- INHERITABLE to be defined in device for all ports at once
+    Supported_Port_Speeds : inherit list of Data_Volume applies to (device,system,processor,bus access);
+
+    -- Speed of the physical port
+    -- CONSTRAINTS: should be in compliance with Supported_Port_Speeds of End System and Switch 
+    -- CONSTRAINTS: must be defined at least on one side of each AFDX wire 
+    -- OPTIONAL: see constraints above
+    -- Makes sense for bus accesses of end system and switch only (in other components for inheritance purposes only)
+    -- INHERITABLE to be defined in one place for the whole system
+    portSpeed : inherit Data_Volume applies to (device,system,bus access);
+
+    -- Network Selector
+    -- OPTIONAL: by default we consider the only network keeping in mind the second one is a copy
+    networkSelector : enumeration (A, B) applies to (device, bus access, virtual bus);
+
+
+------------------------------------------------------------------
+--- 3. Partititon Properties
+------------------------------------------------------------------
+
+    -- Sub-VL defines order of delivery of messages via virtual link.
+    -- Each Sub-VL has a dedicated FIFO queue, that queues are read on a round robin basis by the output VL FIFO queue.
+    -- Sub-VL is an optional feature of AFDX.
+    -- A VL FIFO queue should be able to manage at most 4 Sub-VL FIFO queues.
+    -- CONSTRAINTS: less or equal Max_Supported_SubVLs of AFDX End System
+    -- CONSTRAINTS: applied to output ports only
+    -- CONSTRAINTS: if a port has subVL all other ports bound to the same virtual link have tot have subVL as well
+    -- OPTIONAL: by default all messages go via the only sub-VL
+    SubVL : AADLINTEGER applies to (port);
+
+    -- UDP Port
+    -- CONSTRAINTS: for output ports it is unique across all output ports of the partition 
+    -- CONSTRAINTS: for input ports it is unique across all input ports of the partition 
+    -- OPTIONAL: can be generated automatically
+    UDP : AADLINTEGER 1 .. 65535 applies to (port);
+        
+    -- Partition ID: 8 bits
+    -- It is used to build source (or unicast destination) IP address of partition
+    -- CONSTRAINTS: unique across system (may be in pair with User_Defined_ID?)
+    -- OPTIONAL: can be generated automatically
+    PartitionID : AADLINTEGER 0 .. 255 applies to (virtual processor,process);
+
+------------------------------------------------------------------
+--- 4. AFDX Switch Properties
+------------------------------------------------------------------
+
+    -- AFDX Switch Configuration Table 
+    -- CONSTRAINTS: applicable to AFDX switches only
+    -- CONSTRAINTS: virtual links have to be bound to the switch
+    -- CONSTRAINTS: should contains entry for any virtual link bound to the switch
+    -- OPTIONAL: requires for configuration generation and detailed analysis
+    -- AADLv2.2 NOTE: could be a property of binding of VL to switch
+    -- AADLv2.2 NOTE: could be defined using a new built-in type (map: key->value) 
+    VL_Route_Table : list of record (
+                                     vl : reference (virtual bus);               -- MANDATORY: Virtual link
+                                     in_port : reference (bus access);           -- OPTIONAL: can be evaluated from VL bindings
+                                     out_ports : list of reference (bus access); -- OPTIONAL: can be evaluated from VL bindings
+                                     jitter : TIME;                              -- MANDATORY: Maximum allowed Jitter
+                                     priority : enumeration (high, low);         -- MANDATORY: priority
+                                     accountingPolicy : enumeration (byte, frame); -- MANDATORY: policy
+                                     sharedAccountId : aadlstring;               -- OPTIONAL: specifying if this account is shared or not
+                                    ) applies to (device,system);
+
+    -- Output Buffer Size for High/Low Priority VLs
+    -- CONSTRAINTS: applicable to ports of AFDX switches only
+    -- OPTIONAL: 1 by default
+    highPriorityQSize : aadlinteger 0 .. Max_Queue_Size => 1 applies to (bus access);
+    lowPriorityQSize : aadlinteger 0 .. Max_Queue_Size => 1 applies to (bus access);
+
+    -- An output port should not transmit frames that are older than "max delay".
+    -- The maximum delay parameter of a frame on a given port is defined as the maximum elapsed time between the two following events:
+    -- 1. Arrival of the last bit of a frame on the input port of a switch
+    -- 2. Exit of this last bit of the frame from the given output port of the switch
+    -- CONSTRAINTS: applicable to output bus access of AFDX switches only
+    -- MANDATORY: for each connected output port
+    -- Makes sense for bus accesses of AFDX switch only (in other components for inheritance purposes only)
+    -- INHERITABLE to be defined in one place for the whole switch
+    maxDelay : inherit TIME applies to (bus access,device,system);
+
+    -- List of supported speeds
+    -- CONSTRAINTS: 10 MBpersec,100 MBpersec or 1000 MBpersec 
+    -- OPTIONAL: mandatory to be able check consistency
+    -- Defined in section for end systems
+    -- Makes sense for bus accesses of end system and switch only (in other components for inheritance purposes only)
+    -- INHERITABLE to be defined in device for all ports at once
+    -- Supported_Port_Speeds : inherit list of Data_Volume applies to (device,system,processor,bus access);
+    
+    -- Speed of the physical port
+    -- CONSTRAINTS: should be in compliance with Supported_Port_Speeds of End System and Switch 
+    -- CONSTRAINTS: must be defined at least on one side of each AFDX wire 
+    -- OPTIONAL: see constraints above
+    -- Makes sense for bus accesses of end system and switch only (in other components for inheritance purposes only)
+    -- INHERITABLE to be defined in one place for the whole system
+    -- Defined in section for end systems
+    -- portSpeed : inherit Data_Volume applies to (device,system,bus access);
+
+
+end AFDX_Properties;
+

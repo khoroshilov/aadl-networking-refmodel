@@ -1,0 +1,76 @@
+------------------------------------------------------------------
+-- Dummy model of software layer with a few proccesses
+-- connected via sampling and queueing ports.
+--
+------------------------------------------------------------------
+--------------------List of changes-------------------------------
+------------------------------------------------------------------
+--
+-- Version 1.0. (20 Sep 2015)
+--   Initial revision for 2015 Fall AADL meeting 
+--     Alexey Khoroshilov (ISPRAS)
+--
+------------------------------------------------------------------
+PACKAGE Software_Layer
+Public
+
+------------------------------------------------------------------
+-- Dummy model of software layer with a few proccesses
+-- connected via sampling and queueing ports.
+------------------------------------------------------------------
+  SYSTEM Software_Layer
+  END Software_Layer;
+  SYSTEM IMPLEMENTATION Software_Layer.i
+    SUBCOMPONENTS
+      P_1 : PROCESS P_1;
+      P_2 : PROCESS P_2;
+      P_3 : PROCESS P_3;
+      P_4 : PROCESS P_4;
+    CONNECTIONS
+      CQ_1_2: PORT P_1.qout1->P_2.qin1;
+      CS_1_2: PORT P_1.sout2->P_2.sin2;
+      C_2_3 : PORT P_2.qout1->P_3.qin1;
+      C_1_3 : PORT P_1.sout2->P_3.sin2;
+      C_1_4 : PORT P_1.sout2->P_4.sin2;
+      C_2_4 : PORT P_2.sout3->P_4.sin3;
+  END Software_Layer.i;
+
+------------------------------------------------------------------
+--- 2.1 Process P_1
+------------------------------------------------------------------
+  PROCESS P_1
+    FEATURES
+      qout1 : OUT EVENT DATA PORT;
+      sout2 : OUT DATA PORT;
+  END P_1;
+
+------------------------------------------------------------------
+--- 2.2 Process P_2
+------------------------------------------------------------------
+  PROCESS P_2
+    FEATURES
+      qin1 : IN EVENT DATA PORT;
+      qout1 : OUT EVENT DATA PORT;
+      sin2 : IN DATA PORT;
+      sout3 : OUT DATA PORT;
+  END P_2;
+
+------------------------------------------------------------------
+--- 2.3 Process P_3
+------------------------------------------------------------------
+  PROCESS P_3
+    FEATURES
+      qin1 : IN EVENT DATA PORT;
+      sin2 : IN DATA PORT;
+  END P_3;
+
+------------------------------------------------------------------
+--- 2.4 Process P_4
+------------------------------------------------------------------
+  PROCESS P_4
+    FEATURES
+      sin2 : IN DATA PORT;
+      sin3 : IN DATA PORT;
+  END P_4;
+
+END Software_Layer;

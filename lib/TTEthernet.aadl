@@ -1,0 +1,70 @@
+------------------------------------------------------------------
+-- A library of AADL components to be used to model TTEthernet networks.
+--
+------------------------------------------------------------------
+--------------------List of changes-------------------------------
+------------------------------------------------------------------
+------------------------------------------------------------------
+-- Version 1.0. (20 Sep 2015)
+--   Initial revision for 2015 Fall AADL meeting 
+--     Alexey Khoroshilov (ISPRAS)
+------------------------------------------------------------------
+PACKAGE TTEthernet
+Public
+
+  WITH TTEthernet_Properties;
+  WITH AFDX_Properties;
+  WITH AFDX;
+  
+------------------------------------------------------------------
+--- 1. Hardware Components
+------------------------------------------------------------------
+
+------------------------------------------------------------------
+--- 1.1 TTEWire
+------------------------------------------------------------------
+  BUS Wire EXTENDS AFDX::Wire
+  END Wire;
+
+------------------------------------------------------------------
+--- 1.2 TTEDevice (is TTEEndSystem or TTESwitch or both)
+------------------------------------------------------------------
+  ABSTRACT TTEDevice
+annex pycl {**
+    @constraint("Synchronization_Role is MANDATORY for each TTEDevice")
+    def sync_role_is_mandatory(self):
+        return self.hasProperty('TTEthernet_Properties::Synchronization_Role')
+**};
+  END TTEDevice;
+
+  ABSTRACT EndSystem EXTENDS TTEDevice
+    FEATURES
+      tte : REQUIRES BUS ACCESS Wire;
+  END EndSystem;
+
+
+------------------------------------------------------------------
+--- 2. TTEthernet Network Configuration
+------------------------------------------------------------------
+
+------------------------------------------------------------------
+--- 2.1 TTEthernet Network
+------------------------------------------------------------------
+  VIRTUAL BUS Network EXTENDS AFDX::Network
+  END Network;
+
+------------------------------------------------------------------
+--- 2.2 TTFrame
+------------------------------------------------------------------
+  VIRTUAL BUS TTFrame
+  END TTFrame;
+  
+------------------------------------------------------------------
+--- 2.3 RCFrame
+------------------------------------------------------------------
+-- RCFrame is AFDX::VirtualLink
+-- or
+  VIRTUAL BUS RCFrame EXTENDS AFDX::Virtual_Link
+  END RCFrame;
+
+END TTEthernet;

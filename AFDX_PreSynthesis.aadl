@@ -1,0 +1,149 @@
+------------------------------------------------------------------
+-- An example of a model describing an input for synthesis 
+-- algorithm that automatically generates AFDX virtual links
+-- and their attributes meeting requirements 
+-- (e.g., latency on connections, flows, etc.).
+--
+-- The requirements part is omitted here as long as it is out of scope
+-- of the Networking Annex.
+--
+-- The target for synthesis algorithm is AFDX_Network virtual bus.
+-- Connections bound to it should go via AFDX Network that is formed by
+-- components of HW_Platform AFDX_Network bounds to.
+--
+------------------------------------------------------------------
+--------------------List of changes-------------------------------
+------------------------------------------------------------------
+--
+-- Version 1.0. (20 Sep 2015)
+--   Initial revision for 2015 Fall AADL meeting 
+--     Alexey Khoroshilov (ISPRAS)
+--
+------------------------------------------------------------------
+
+PACKAGE AFDX_PreSynthesis
+Public
+
+  WITH AFDX_Properties;
+  WITH AFDX;
+  WITH Software_Layer;
+
+------------------------------------------------------------------
+-----------------------AFDX_Model---------------------------------
+------------------------------------------------------------------
+  SYSTEM AFDX_PreSynthesis
+  END AFDX_PreSynthesis;
+  SYSTEM IMPLEMENTATION AFDX_PreSynthesis.i 
+    SUBCOMPONENTS
+      Software_Layer : SYSTEM Software_Layer::Software_Layer.i;
+      HW_Platform : SYSTEM HW_Platform.i;
+      -- ARINC-653 Configuration
+      P_1 : VIRTUAL PROCESSOR;
+      P_2 : VIRTUAL PROCESSOR;
+      P_3 : VIRTUAL PROCESSOR;
+      P_4 : VIRTUAL PROCESSOR;
+      -- AFDX Configuration
+      AFDX_Network : VIRTUAL BUS AFDX::Network;
+    PROPERTIES
+      -- Maps processes to processors
+      Actual_Processor_Binding => (reference(P_1)) applies to Software_Layer.P_1;
+      Actual_Processor_Binding => (reference(P_2)) applies to Software_Layer.P_2;
+      Actual_Processor_Binding => (reference(P_3)) applies to Software_Layer.P_3;
+      Actual_Processor_Binding => (reference(P_4)) applies to Software_Layer.P_4;
+      Actual_Processor_Binding => (reference(HW_Platform.CPM_1.CPU)) applies to P_1;
+      Actual_Processor_Binding => (reference(HW_Platform.CPM_2.CPU)) applies to P_2;
+      Actual_Processor_Binding => (reference(HW_Platform.CPM_3.CPU)) applies to P_3;
+      Actual_Processor_Binding => (reference(HW_Platform.CPM_3.CPU)) applies to P_4;
+      -- Map connections to virtual links
+      Actual_Connection_Binding => (reference(AFDX_Network)) 
+        applies to Software_Layer.CQ_1_2, Software_Layer.CS_1_2,
+                   Software_Layer.C_2_3, Software_Layer.C_1_3, 
+                   Software_Layer.C_1_4, Software_Layer.C_2_4;
+      -- Map AFDX Network to HW elements
+      Actual_Connection_Binding => (reference(HW_Platform.CPM_1.AFDX_ES),reference(HW_Platform.CPM_2.AFDX_ES),
+                                    reference(HW_Platform.CPM_3.AFDX_ES),
+                                    reference(HW_Platform.WIRE_1),reference(HW_Platform.WIRE_2),
+                                    reference(HW_Platform.WIRE_3),reference(HW_Platform.WIRE_4),
+                                    reference(HW_Platform.SW_1),reference(HW_Platform.SW_2)) 
+        applies to AFDX_Network;
+  END AFDX_PreSynthesis.i;
+
+------------------------------------------------------------------
+--- 1. HW_Platform
+------------------------------------------------------------------
+  SYSTEM HW_Platform
+  END HW_Platform;
+  SYSTEM IMPLEMENTATION HW_Platform.i
+    SUBCOMPONENTS
+      CPM_1 : SYSTEM Module.i; -- Processor or System
+      CPM_2 : SYSTEM Module.i; -- Processor or System
+      CPM_3 : SYSTEM Module.i; -- Processor or System
+      WIRE_1 : BUS AFDX::Wire; -- Bus
+      WIRE_2 : BUS AFDX::Wire; -- Bus
+      WIRE_3 : BUS AFDX::Wire; -- Bus
+      WIRE_4 : BUS AFDX::Wire; -- Bus
+      SW_1 : DEVICE AFDXSwitch_4p; -- Device or System
+      SW_2 : DEVICE AFDXSwitch_4p; -- Device or System
+    CONNECTIONS
+      WIRE_1_CPM_1: BUS ACCESS WIRE_1->CPM_1.afdx;
+      WIRE_1_SW_1:  BUS ACCESS WIRE_1->SW_1.afdx_p1;
+      WIRE_3_SW_1:  BUS ACCESS WIRE_3->SW_1.afdx_p3;
+      WIRE_1_CPM_2: BUS ACCESS WIRE_3->CPM_2.afdx;
+      WIRE_2_SW_1:  BUS ACCESS WIRE_2->SW_1.afdx_p4;
+      WIRE_2_SW_2:  BUS ACCESS WIRE_2->SW_2.afdx_p1;
+      WIRE_4_SW_2:  BUS ACCESS WIRE_4->SW_2.afdx_p4;
+      WIRE_4_CPM_3: BUS ACCESS WIRE_4->CPM_3.afdx;
+  END HW_Platform.i;
+
+------------------------------------------------------------------
+--- 1.1 Module
+------------------------------------------------------------------
+  SYSTEM Module
+    FEATURES
+      afdx : REQUIRES BUS ACCESS AFDX::Wire;
+  END Module;
+
+  SYSTEM IMPLEMENTATION Module.i
+    SUBCOMPONENTS
+      CPU : PROCESSOR CPU_with_PCI;
+      AFDX_ES : DEVICE AFDX_Card;
+      PCI_BUS : BUS;
+    CONNECTIONS
+      CPU_PCI: BUS ACCESS PCI_BUS->CPU.pci;
+      AFDX_ES_PCI: BUS ACCESS PCI_BUS->AFDX_ES.pci;
+      AFDX_EXT: BUS ACCESS AFDX_ES.afdx->afdx;
+  END Module.i;
+
+------------------------------------------------------------------
+--- 1.2 CPU_with_PCI
+------------------------------------------------------------------
+  PROCESSOR CPU_with_PCI
+    FEATURES
+      pci : REQUIRES BUS ACCESS;
+  END CPU_with_PCI;
+
+------------------------------------------------------------------
+-- 1.3 AFDX_Card
+------------------------------------------------------------------
+  DEVICE AFDX_Card EXTENDS AFDX::End_System
+    FEATURES
+      pci  : REQUIRES BUS ACCESS;
+    PROPERTIES
+      AFDX_Properties::Supported_Port_Speeds => (100 MBytesps);
+  END AFDX_Card;
+
+------------------------------------------------------------------
+--- 1.4 AFDXSwitch - An implementation with 4 port 
+------------------------------------------------------------------
+  DEVICE AFDXSwitch_4p EXTENDS AFDX::Switch
+	FEATURES
+		afdx_p1 : REQUIRES BUS ACCESS AFDX::Wire;
+		afdx_p2 : REQUIRES BUS ACCESS AFDX::Wire;
+		afdx_p3 : REQUIRES BUS ACCESS AFDX::Wire;
+		afdx_p4 : REQUIRES BUS ACCESS AFDX::Wire;
+    PROPERTIES
+      AFDX_Properties::Supported_Port_Speeds => (10 MBytesps,100 MBytesps);
+  END AFDXSwitch_4p;
+
+
+END AFDX_PreSynthesis;

@@ -1,0 +1,170 @@
+------------------------------------------------------------------
+-- Basic AADL model of TTEthernet network.
+--
+------------------------------------------------------------------
+--------------------List of changes-------------------------------
+------------------------------------------------------------------
+--
+-- Version 1.0. (20 Sep 2015)
+--   Initial revision for 2015 Fall AADL meeting 
+--     Alexey Khoroshilov (ISPRAS)
+--
+------------------------------------------------------------------
+
+PACKAGE TTE_Model
+Public
+
+  WITH AFDX_Properties;
+  WITH TTEthernet_Properties;
+  WITH TTEthernet;
+  WITH Software_Layer;
+
+  TTE_Network renames VIRTUAL BUS TTEthernet::Network;
+  
+------------------------------------------------------------------
+-----------------------TTE_Model---------------------------------
+------------------------------------------------------------------
+  SYSTEM TTE_Model
+  END TTE_Model;
+  SYSTEM IMPLEMENTATION TTE_Model.i 
+    SUBCOMPONENTS
+      HW_Platform : SYSTEM HW_Platform.i;
+      Software_Layer : SYSTEM Software_Layer::Software_Layer.i;
+      -- ARINC-653 Configuration
+      P_1 : VIRTUAL PROCESSOR;
+      P_2 : VIRTUAL PROCESSOR;
+      P_3 : VIRTUAL PROCESSOR;
+      P_4 : VIRTUAL PROCESSOR;
+      -- TTE Configuration
+      TTE_Network : VIRTUAL BUS TTE_Network.i;
+    PROPERTIES
+      -- Network speed defined for the whole network here
+      AFDX_Properties::portSpeed => 100 MBytesps;
+      -- Maps processes to processors
+      Actual_Processor_Binding => (reference(P_1)) applies to Software_Layer.P_1;
+      Actual_Processor_Binding => (reference(P_2)) applies to Software_Layer.P_2;
+      Actual_Processor_Binding => (reference(P_3)) applies to Software_Layer.P_3;
+      Actual_Processor_Binding => (reference(P_4)) applies to Software_Layer.P_4;
+      Actual_Processor_Binding => (reference(HW_Platform.CPM_1.CPU)) applies to P_1;
+      Actual_Processor_Binding => (reference(HW_Platform.CPM_2.CPU)) applies to P_2;
+      Actual_Processor_Binding => (reference(HW_Platform.CPM_3.CPU)) applies to P_3;
+      Actual_Processor_Binding => (reference(HW_Platform.CPM_3.CPU)) applies to P_4;
+      -- Define virtual links
+      Actual_Connection_Binding => (reference(HW_Platform.CPM_1.TTE_ES),reference(HW_Platform.WIRE_1),reference(HW_Platform.SW_1),
+                                    reference(HW_Platform.WIRE_3),reference(HW_Platform.CPM_2.TTE_ES)) 
+        applies to TTE_Network.VL1;
+      Actual_Connection_Binding => (reference(HW_Platform.CPM_2.TTE_ES),reference(HW_Platform.WIRE_3),reference(HW_Platform.SW_1),
+                                    reference(HW_Platform.WIRE_2),reference(HW_Platform.SW_2),
+                                    reference(HW_Platform.WIRE_4),reference(HW_Platform.CPM_3.TTE_ES)) 
+        applies to TTE_Network.VL2;
+      Actual_Connection_Binding => (reference(HW_Platform.CPM_1.TTE_ES),reference(HW_Platform.WIRE_1),reference(HW_Platform.SW_1),
+                                    reference(HW_Platform.WIRE_2),reference(HW_Platform.SW_2),
+                                    reference(HW_Platform.WIRE_3),reference(HW_Platform.CPM_2.TTE_ES),
+                                    reference(HW_Platform.WIRE_4),reference(HW_Platform.CPM_3.TTE_ES)) 
+        applies to TTE_Network.VL3;
+      -- Map connections to virtual links
+      Actual_Connection_Binding => (reference(HW_Platform.CPM_1.PCI_BUS),reference(TTE_Network.VL1),reference(HW_Platform.CPM_2.PCI_BUS)) 
+        applies to Software_Layer.CQ_1_2;
+      Actual_Connection_Binding => (reference(HW_Platform.CPM_1.PCI_BUS),reference(TTE_Network.VL3),reference(HW_Platform.CPM_2.PCI_BUS)) 
+        applies to Software_Layer.CS_1_2;
+      Actual_Connection_Binding => (reference(HW_Platform.CPM_1.PCI_BUS),reference(TTE_Network.VL2),reference(HW_Platform.CPM_2.PCI_BUS))
+        applies to Software_Layer.C_2_3;
+      Actual_Connection_Binding => (reference(HW_Platform.CPM_1.PCI_BUS),reference(TTE_Network.VL3),reference(HW_Platform.CPM_3.PCI_BUS))
+        applies to Software_Layer.C_1_3;
+      Actual_Connection_Binding => (reference(HW_Platform.CPM_1.PCI_BUS),reference(TTE_Network.VL3),reference(HW_Platform.CPM_3.PCI_BUS))
+        applies to Software_Layer.C_1_4;
+      Actual_Connection_Binding => (reference(HW_Platform.CPM_2.PCI_BUS),reference(TTE_Network.VL2),reference(HW_Platform.CPM_3.PCI_BUS))
+        applies to Software_Layer.C_2_4;
+  END TTE_Model.i;
+
+------------------------------------------------------------------
+--- 1. HW_Platform
+------------------------------------------------------------------
+  SYSTEM HW_Platform
+  END HW_Platform;
+  SYSTEM IMPLEMENTATION HW_Platform.i
+    SUBCOMPONENTS
+      CPM_1 : SYSTEM Module.i; -- Processor or System
+      CPM_2 : SYSTEM Module.i; -- Processor or System
+      CPM_3 : SYSTEM Module.i; -- Processor or System
+      WIRE_1 : BUS TTEthernet::Wire; -- Bus
+      WIRE_2 : BUS TTEthernet::Wire; -- Bus
+      WIRE_3 : BUS TTEthernet::Wire; -- Bus
+      WIRE_4 : BUS TTEthernet::Wire; -- Bus
+      SW_1 : DEVICE TTESwitch_4p; -- Device or System
+      SW_2 : DEVICE TTESwitch_4p; -- Device or System
+    CONNECTIONS
+      WIRE_1_CPM_1: BUS ACCESS WIRE_1->CPM_1.tte;
+      WIRE_1_SW_1:  BUS ACCESS WIRE_1->SW_1.tte_p1;
+      WIRE_3_SW_1:  BUS ACCESS WIRE_3->SW_1.tte_p3;
+      WIRE_1_CPM_2: BUS ACCESS WIRE_3->CPM_2.tte;
+      WIRE_2_SW_1:  BUS ACCESS WIRE_2->SW_1.tte_p4;
+      WIRE_2_SW_2:  BUS ACCESS WIRE_2->SW_2.tte_p1;
+      WIRE_4_SW_2:  BUS ACCESS WIRE_4->SW_2.tte_p4;
+      WIRE_4_CPM_3: BUS ACCESS WIRE_4->CPM_3.tte;
+  END HW_Platform.i;
+
+------------------------------------------------------------------
+--- 1.1 Module
+------------------------------------------------------------------
+  SYSTEM Module
+    FEATURES
+      tte : REQUIRES BUS ACCESS TTEthernet::Wire;
+  END Module;
+
+  SYSTEM IMPLEMENTATION Module.i
+    SUBCOMPONENTS
+      CPU : PROCESSOR CPU_with_PCI;
+      TTE_ES : DEVICE TTE_Card;
+      PCI_BUS : BUS;
+    CONNECTIONS
+      CPU_PCI: BUS ACCESS PCI_BUS->CPU.pci;
+      TTE_ES_PCI: BUS ACCESS PCI_BUS->TTE_ES.pci;
+      TTE_EXT: BUS ACCESS TTE_ES.tte->tte;
+  END Module.i;
+
+------------------------------------------------------------------
+--- 1.2 CPU_with_PCI
+------------------------------------------------------------------
+  PROCESSOR CPU_with_PCI
+    FEATURES
+      pci : REQUIRES BUS ACCESS;
+  END CPU_with_PCI;
+
+------------------------------------------------------------------
+-- 1.3 TTE_Card
+------------------------------------------------------------------
+  DEVICE TTE_Card EXTENDS TTEthernet::EndSystem
+    FEATURES
+      pci  : REQUIRES BUS ACCESS;
+    PROPERTIES
+      AFDX_Properties::Supported_Port_Speeds => (100 MBytesps);
+  END TTE_Card;
+
+------------------------------------------------------------------
+--- 1.4 TTESwitch - An implementation with 4 port 
+------------------------------------------------------------------
+  DEVICE TTESwitch_4p EXTENDS TTEthernet::TTEDevice
+	FEATURES
+		tte_p1 : REQUIRES BUS ACCESS TTEthernet::Wire;
+		tte_p2 : REQUIRES BUS ACCESS TTEthernet::Wire;
+		tte_p3 : REQUIRES BUS ACCESS TTEthernet::Wire;
+		tte_p4 : REQUIRES BUS ACCESS TTEthernet::Wire;
+    PROPERTIES
+      AFDX_Properties::Supported_Port_Speeds => (10 MBytesps,100 MBytesps);
+  END TTESwitch_4p;
+
+------------------------------------------------------------------
+--- 2. TTEthernet Network Configuration
+------------------------------------------------------------------
+  VIRTUAL BUS IMPLEMENTATION TTE_Network.i
+    SUBCOMPONENTS
+      VL1 : VIRTUAL BUS TTEthernet::TTFrame;
+      VL2 : VIRTUAL BUS TTEthernet::TTFrame;
+      VL3 : VIRTUAL BUS TTEthernet::RCFrame;
+    PROPERTIES
+      -- Setup virtual links configuration
+      AFDX_Properties::BAG => 1 ms applies to VL3;
+  END TTE_Network.i;
+
+END TTE_Model;
